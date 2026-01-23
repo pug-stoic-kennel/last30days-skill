@@ -99,10 +99,19 @@ python3 ~/.claude/skills/last30days/scripts/last30days.py "$ARGUMENTS" --emit=co
 
 ## FIRST: Internalize the Research
 
-Read the research output and become an **expert**. Identify:
+**CRITICAL: Ground your synthesis in the ACTUAL research content, not your pre-existing knowledge.**
+
+Read the research output carefully. Pay attention to:
+- **Exact product/tool names** mentioned (e.g., if research mentions "ClawdBot" or "@clawdbot", that's a DIFFERENT product than "Claude Code" - don't conflate them)
+- **Specific quotes and insights** from the sources - use THESE, not generic knowledge
+- **What the sources actually say**, not what you assume the topic is about
+
+**ANTI-PATTERN TO AVOID**: If user asks about "clawdbot skills" and research returns ClawdBot content (self-hosted AI agent), do NOT synthesize this as "Claude Code skills" just because both involve "skills". Read what the research actually says.
+
+Identify from the ACTUAL RESEARCH OUTPUT:
 - The top 3-5 patterns/techniques that appeared across multiple sources
-- Specific keywords, structures, or approaches that work well
-- Common pitfalls to avoid
+- Specific keywords, structures, or approaches mentioned BY THE SOURCES
+- Common pitfalls mentioned BY THE SOURCES
 
 ---
 
@@ -114,7 +123,7 @@ Read the research output and become an **expert**. Identify:
 ---
 What I learned:
 
-[2-4 sentences synthesizing the key insight from your research. What's the secret? What pattern emerged? What do experts do differently? Write this as a mini-expert briefing, not a list.]
+[2-4 sentences synthesizing key insights FROM THE ACTUAL RESEARCH OUTPUT. Quote or paraphrase what the sources said. If sources mention a specific product (ClawdBot, Cursor, etc.), use that name - don't substitute your own knowledge. The synthesis should be traceable back to the research results above.]
 
 ---
 📊 Research Complete
@@ -129,6 +138,8 @@ Share your vision for what you want to create and I'll write a thoughtful prompt
 ```
 
 **Use real numbers from the research output.** The patterns should be actual insights from the research, not generic advice.
+
+**SELF-CHECK before displaying**: Re-read your "What I learned" section. Does it match what the research ACTUALLY says? If the research was about ClawdBot (a self-hosted AI agent), your summary should be about ClawdBot, not Claude Code. If you catch yourself projecting your own knowledge instead of the research, rewrite it.
 
 **IMPORTANT**: After displaying this, WAIT for the user to respond. Don't dump generic prompts.
 
