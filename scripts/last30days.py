@@ -18,6 +18,7 @@ import argparse
 import json
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -50,6 +51,111 @@ def load_fixture(name: str) -> dict:
         with open(fixture_path) as f:
             return json.load(f)
     return {}
+
+
+def _search_reddit(
+    topic: str,
+    config: dict,
+    selected_models: dict,
+    from_date: str,
+    to_date: str,
+    depth: str,
+    mock: bool,
+) -> tuple:
+    """Search Reddit via OpenAI (runs in thread).
+
+    Returns:
+        Tuple of (reddit_items, raw_openai, error)
+    """
+    raw_openai = None
+    reddit_error = None
+
+    if mock:
+        raw_openai = load_fixture("openai_sample.json")
+    else:
+        try:
+            raw_openai = openai_reddit.search_reddit(
+                config["OPENAI_API_KEY"],
+                selected_models["openai"],
+                topic,
+                from_date,
+                to_date,
+                depth=depth,
+            )
+        except http.HTTPError as e:
+            raw_openai = {"error": str(e)}
+            reddit_error = f"API error: {e}"
+        except Exception as e:
+            raw_openai = {"error": str(e)}
+            reddit_error = f"{type(e).__name__}: {e}"
+
+    # Parse response
+    reddit_items = openai_reddit.parse_reddit_response(raw_openai or {})
+
+    # Quick retry with simpler query if few results
+    if len(reddit_items) < 5 and not mock and not reddit_error:
+        core = openai_reddit._extract_core_subject(topic)
+        if core.lower() != topic.lower():
+            try:
+                retry_raw = openai_reddit.search_reddit(
+                    config["OPENAI_API_KEY"],
+                    selected_models["openai"],
+                    core,
+                    from_date, to_date,
+                    depth=depth,
+                )
+                retry_items = openai_reddit.parse_reddit_response(retry_raw)
+                # Add items not already found (by URL)
+                existing_urls = {item.get("url") for item in reddit_items}
+                for item in retry_items:
+                    if item.get("url") not in existing_urls:
+                        reddit_items.append(item)
+            except Exception:
+                pass
+
+    return reddit_items, raw_openai, reddit_error
+
+
+def _search_x(
+    topic: str,
+    config: dict,
+    selected_models: dict,
+    from_date: str,
+    to_date: str,
+    depth: str,
+    mock: bool,
+) -> tuple:
+    """Search X via xAI (runs in thread).
+
+    Returns:
+        Tuple of (x_items, raw_xai, error)
+    """
+    raw_xai = None
+    x_error = None
+
+    if mock:
+        raw_xai = load_fixture("xai_sample.json")
+    else:
+        try:
+            raw_xai = xai_x.search_x(
+                config["XAI_API_KEY"],
+                selected_models["xai"],
+                topic,
+                from_date,
+                to_date,
+                depth=depth,
+            )
+        except http.HTTPError as e:
+            raw_xai = {"error": str(e)}
+            x_error = f"API error: {e}"
+        except Exception as e:
+            raw_xai = {"error": str(e)}
+            x_error = f"{type(e).__name__}: {e}"
+
+    # Parse response
+    x_items = xai_x.parse_x_response(raw_xai or {})
+
+    return x_items, raw_xai, x_error
 
 
 def run_research(
@@ -89,114 +195,81 @@ def run_research(
             progress.end_web_only()
         return reddit_items, x_items, True, raw_openai, raw_xai, raw_reddit_enriched, reddit_error, x_error
 
-    # Reddit search via OpenAI
-    if sources in ("both", "reddit", "all", "reddit-web"):
-        if progress:
-            progress.start_reddit()
+    # Determine which searches to run
+    run_reddit = sources in ("both", "reddit", "all", "reddit-web")
+    run_x = sources in ("both", "x", "all", "x-web")
 
-        if mock:
-            raw_openai = load_fixture("openai_sample.json")
-        else:
+    # Run Reddit and X searches in parallel
+    reddit_future = None
+    x_future = None
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        # Submit both searches
+        if run_reddit:
+            if progress:
+                progress.start_reddit()
+            reddit_future = executor.submit(
+                _search_reddit, topic, config, selected_models,
+                from_date, to_date, depth, mock
+            )
+
+        if run_x:
+            if progress:
+                progress.start_x()
+            x_future = executor.submit(
+                _search_x, topic, config, selected_models,
+                from_date, to_date, depth, mock
+            )
+
+        # Collect results
+        if reddit_future:
             try:
-                raw_openai = openai_reddit.search_reddit(
-                    config["OPENAI_API_KEY"],
-                    selected_models["openai"],
-                    topic,
-                    from_date,
-                    to_date,
-                    depth=depth,
-                )
-            except http.HTTPError as e:
-                if progress:
-                    progress.show_error(f"Reddit API failed: {e}")
-                raw_openai = {"error": str(e)}
-                reddit_error = f"API error: {e}"
+                reddit_items, raw_openai, reddit_error = reddit_future.result()
+                if reddit_error and progress:
+                    progress.show_error(f"Reddit error: {reddit_error}")
             except Exception as e:
+                reddit_error = f"{type(e).__name__}: {e}"
                 if progress:
                     progress.show_error(f"Reddit error: {e}")
-                raw_openai = {"error": str(e)}
-                reddit_error = f"{type(e).__name__}: {e}"
-
-        # Parse response
-        reddit_items = openai_reddit.parse_reddit_response(raw_openai)
-
-        # Quick retry with simpler query if few results
-        if len(reddit_items) < 5 and not mock:
-            core = openai_reddit._extract_core_subject(topic)
-            if core.lower() != topic.lower():
-                try:
-                    retry_raw = openai_reddit.search_reddit(
-                        config["OPENAI_API_KEY"],
-                        selected_models["openai"],
-                        core,
-                        from_date, to_date,
-                        depth=depth,
-                    )
-                    retry_items = openai_reddit.parse_reddit_response(retry_raw)
-                    # Add items not already found (by URL)
-                    existing_urls = {item.get("url") for item in reddit_items}
-                    for item in retry_items:
-                        if item.get("url") not in existing_urls:
-                            reddit_items.append(item)
-                except Exception:
-                    pass
-
-        if progress:
-            progress.end_reddit(len(reddit_items))
-
-        # Enrich with real Reddit data
-        if reddit_items:
             if progress:
-                progress.start_reddit_enrich(1, len(reddit_items))
+                progress.end_reddit(len(reddit_items))
 
-            for i, item in enumerate(reddit_items):
-                if progress and i > 0:
-                    progress.update_reddit_enrich(i + 1, len(reddit_items))
+        if x_future:
+            try:
+                x_items, raw_xai, x_error = x_future.result()
+                if x_error and progress:
+                    progress.show_error(f"X error: {x_error}")
+            except Exception as e:
+                x_error = f"{type(e).__name__}: {e}"
+                if progress:
+                    progress.show_error(f"X error: {e}")
+            if progress:
+                progress.end_x(len(x_items))
 
+    # Enrich Reddit items with real data (sequential, but with error handling per-item)
+    if reddit_items:
+        if progress:
+            progress.start_reddit_enrich(1, len(reddit_items))
+
+        for i, item in enumerate(reddit_items):
+            if progress and i > 0:
+                progress.update_reddit_enrich(i + 1, len(reddit_items))
+
+            try:
                 if mock:
                     mock_thread = load_fixture("reddit_thread_sample.json")
                     reddit_items[i] = reddit_enrich.enrich_reddit_item(item, mock_thread)
                 else:
                     reddit_items[i] = reddit_enrich.enrich_reddit_item(item)
-
-                raw_reddit_enriched.append(reddit_items[i])
-
-            if progress:
-                progress.end_reddit_enrich()
-
-    # X search via xAI
-    if sources in ("both", "x", "all", "x-web"):
-        if progress:
-            progress.start_x()
-
-        if mock:
-            raw_xai = load_fixture("xai_sample.json")
-        else:
-            try:
-                raw_xai = xai_x.search_x(
-                    config["XAI_API_KEY"],
-                    selected_models["xai"],
-                    topic,
-                    from_date,
-                    to_date,
-                    depth=depth,
-                )
-            except http.HTTPError as e:
-                if progress:
-                    progress.show_error(f"X API failed: {e}")
-                raw_xai = {"error": str(e)}
-                x_error = f"API error: {e}"
             except Exception as e:
+                # Log but don't crash - keep the unenriched item
                 if progress:
-                    progress.show_error(f"X error: {e}")
-                raw_xai = {"error": str(e)}
-                x_error = f"{type(e).__name__}: {e}"
+                    progress.show_error(f"Enrich failed for {item.get('url', 'unknown')}: {e}")
 
-        # Parse response
-        x_items = xai_x.parse_x_response(raw_xai)
+            raw_reddit_enriched.append(reddit_items[i])
 
         if progress:
-            progress.end_x(len(x_items))
+            progress.end_reddit_enrich()
 
     return reddit_items, x_items, web_needed, raw_openai, raw_xai, raw_reddit_enriched, reddit_error, x_error
 

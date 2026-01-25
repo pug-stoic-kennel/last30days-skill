@@ -102,6 +102,12 @@ def request(
             log(f"JSON decode error: {e}")
             last_error = HTTPError(f"Invalid JSON response: {e}")
             raise last_error
+        except (OSError, TimeoutError, ConnectionResetError) as e:
+            # Handle socket-level errors (connection reset, timeout, etc.)
+            log(f"Connection error: {type(e).__name__}: {e}")
+            last_error = HTTPError(f"Connection error: {type(e).__name__}: {e}")
+            if attempt < retries - 1:
+                time.sleep(RETRY_DELAY * (attempt + 1))
 
     if last_error:
         raise last_error

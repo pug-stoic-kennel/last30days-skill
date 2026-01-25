@@ -110,8 +110,8 @@ def search_reddit(
         "Content-Type": "application/json",
     }
 
-    # Adjust timeout based on depth
-    timeout = 60 if depth == "quick" else 90 if depth == "default" else 120
+    # Adjust timeout based on depth (generous for OpenAI web_search which can be slow)
+    timeout = 90 if depth == "quick" else 120 if depth == "default" else 180
 
     # Note: allowed_domains accepts base domain, not subdomains
     # We rely on prompt to filter out developers.reddit.com, etc.

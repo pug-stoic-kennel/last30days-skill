@@ -88,8 +88,8 @@ def search_x(
         "Content-Type": "application/json",
     }
 
-    # Adjust timeout based on depth
-    timeout = 60 if depth == "quick" else 90 if depth == "default" else 120
+    # Adjust timeout based on depth (generous for API response time)
+    timeout = 90 if depth == "quick" else 120 if depth == "default" else 180
 
     # Use Agent Tools API with x_search tool
     payload = {

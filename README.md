@@ -140,6 +140,56 @@ This example shows /last30days as a **product research tool** - discovering real
 
 ---
 
+## Example: ClawdBot Setup (Installation Guide)
+
+**Query:** `/last30days how to best setup clawdbot`
+
+**Research Output:**
+> ClawdBot setup varies by deployment style - Docker is the most recommended path, but users are also deploying via bare metal and cloud VMs. The community has converged on key best practices: use the setup wizard for initial config, start with conservative hardware (you can scale up), and configure authentication before exposing any endpoints.
+
+**🛠️ Setup patterns by engagement:**
+
+| Pattern | Mentions | Key Sources |
+|---------|----------|-------------|
+| Docker Compose deployment | 6x | r/selfhosted, r/LocalLLaMA |
+| Setup wizard (interactive config) | 5x | @dreetje, documentation |
+| API key management | 4x | r/selfhosted, security threads |
+| Hardware requirements | 4x | r/LocalLLaMA (GPU discussions) |
+| Reverse proxy (Caddy/nginx) | 3x | r/selfhosted |
+
+**Key setup insights from community:**
+
+1. **Use the setup wizard** - Don't manually edit config files first; the wizard handles 90% of initial setup
+2. **Start small on hardware** - 8GB RAM minimum, but 16GB+ recommended if running local models
+3. **Docker > bare metal** - Easier updates, better isolation, community-tested compose files
+4. **Secure before exposing** - Set up authentication before opening ports; ClawdBot has built-in auth
+5. **Cost management** - Set API rate limits early; one user reported $200 overnight bill from runaway tasks
+
+**Quick-start commands (community-verified):**
+
+```bash
+# Clone and setup
+git clone https://github.com/clawdbot/clawdbot.git
+cd clawdbot
+
+# Run setup wizard (recommended)
+./setup.sh
+
+# Or Docker Compose (after config)
+docker compose up -d
+```
+
+**Common gotchas mentioned:**
+- Don't forget to set `CLAWDBOT_API_KEY` before first run
+- Telegram bot token needs BotFather setup first
+- If using local models, ensure CUDA drivers are installed
+
+**Research Stats:** 8 Reddit threads (128 upvotes) + 22 X posts (24,000+ likes) from r/selfhosted, r/LocalLLaMA, @dreetje, @steipete
+
+This example shows /last30days as a **setup guide aggregator** - pulling together scattered installation advice, gotchas, and best practices from real users who've already solved the problems you're about to encounter.
+
+---
+
 ## Example: iOS App Mockup (Nano Banana Pro)
 
 **Query:** `/last30days prompting tips for nano banana pro for ios designs`
