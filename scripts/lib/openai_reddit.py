@@ -22,51 +22,48 @@ DEPTH_CONFIG = {
     "deep": (50, 70),
 }
 
-REDDIT_SEARCH_PROMPT = """Search Reddit for DISCUSSION THREADS about: {topic}
+REDDIT_SEARCH_PROMPT = """Find Reddit discussion threads about: {topic}
 
-DATE RANGE: Only include threads from {from_date} to {to_date} (last 30 days).
+STEP 1: EXTRACT CORE KEYWORDS
+Extract the main subject. Examples:
+- "killer features of clawdbot" → search for "clawdbot"
+- "best React hooks practices" → search for "React hooks"
+Search for the CORE KEYWORD, not the full phrase.
 
-SEARCH GUIDANCE:
-- Search for "site:reddit.com/r/ {topic}" to find subreddit discussions
-- Look in subreddits like r/design, r/UI_Design, r/iOSProgramming, r/SwiftUI, r/Figma, r/webdev, r/userexperience, r/graphic_design, r/ClaudeAI, r/ClaudeCode
-- ONLY include URLs containing "/r/" and "/comments/" (actual discussion threads)
-- IGNORE: developers.reddit.com, business.reddit.com, reddit.com/user/
+STEP 2: SEARCH STRATEGIES (try multiple)
+1. "reddit [keyword]" - general Reddit search
+2. "reddit [keyword] discussion" - find discussions
+3. "[keyword] site:reddit.com/r/" - subreddit posts
+4. "reddit.com/r/ [keyword] comments" - thread URLs
 
-CRITICAL DATE REQUIREMENT:
-- ONLY include threads posted AFTER {from_date}
-- Do NOT include threads older than {from_date}, even if they seem relevant
-- If you cannot find enough recent threads, return FEWER results rather than older ones
-- It is better to return 3 recent threads than 15 old ones
+REQUIRED: URLs must contain BOTH "/r/" AND "/comments/"
+Example valid URL: https://www.reddit.com/r/selfhosted/comments/abc123/title/
 
-Find {min_items}-{max_items} relevant Reddit discussion threads from the last 30 days.
+REJECT these URLs (not discussion threads):
+- developers.reddit.com (Reddit apps, not discussions)
+- business.reddit.com
+- reddit.com/user/ (user profiles)
+- Any URL missing "/comments/"
 
-For EACH Reddit thread URL (containing /r/subreddit/comments/), extract:
-- Thread title
-- Full Reddit URL
-- Subreddit name
-- Date (MUST be after {from_date}, otherwise do not include)
-- Why it's relevant
+DATE RANGE: {from_date} to {to_date} (last 30 days).
 
-Return ONLY valid JSON:
+Find {min_items}-{max_items} discussion threads.
+
+Return JSON:
 {{
   "items": [
     {{
-      "title": "Thread title",
-      "url": "https://www.reddit.com/r/subreddit/comments/abc123/title/",
+      "title": "Thread title from Reddit",
+      "url": "https://www.reddit.com/r/subreddit/comments/xyz/title/",
       "subreddit": "subreddit_name",
       "date": "YYYY-MM-DD or null",
-      "why_relevant": "Relevance to {topic}",
+      "why_relevant": "Why this is relevant",
       "relevance": 0.85
     }}
   ]
 }}
 
-Rules:
-- ONLY URLs matching: reddit.com/r/*/comments/*
-- ONLY threads from {from_date} to {to_date}
-- relevance: 0.0-1.0
-- Diverse subreddits preferred
-- Fewer recent results is better than many old results"""
+IMPORTANT: Only return items with URLs containing /r/*/comments/*. If you cannot find any valid discussion threads, return {{"items": []}}."""
 
 
 def search_reddit(
@@ -105,6 +102,8 @@ def search_reddit(
     # Adjust timeout based on depth
     timeout = 60 if depth == "quick" else 90 if depth == "default" else 120
 
+    # Note: allowed_domains accepts base domain, not subdomains
+    # We rely on prompt to filter out developers.reddit.com, etc.
     payload = {
         "model": model,
         "tools": [
