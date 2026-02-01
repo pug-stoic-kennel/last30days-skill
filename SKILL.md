@@ -1,11 +1,6 @@
 ---
 name: last30days
-description: Research a topic from the last 30 days on Reddit + X + Web, become an expert, and write copy-paste-ready prompts for the user's target tool.
-argument-hint: "[topic] for [tool]" or "[topic]"
-context: fork
-agent: Explore
-disable-model-invocation: true
-allowed-tools: Bash, Read, Write, AskUserQuestion, WebSearch
+description: Research a topic from the last 30 days on Reddit + X + Web, become an expert, and write copy-paste-ready prompts for the user's target tool. Trigger with "/last30days [topic]" or "/last30days [topic] for [tool]". Use for prompt research, trend discovery, recommendations, news, or any topic where recent community discussion matters.
 ---
 
 # last30days: Research Any Topic from the Last 30 Days
