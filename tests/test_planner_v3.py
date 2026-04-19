@@ -413,14 +413,24 @@ class FallbackDefaultsTests(unittest.TestCase):
                 provider=None,
                 model=None,
             )
-        self.assertIn("No --plan and no LLM provider configured", buf.getvalue())
+        output = buf.getvalue()
+        # New language: "No --plan passed" + "YOU ARE the planner" +
+        # runtime enumeration. Unit 4 (2026-04-19) rewrite to stop the
+        # "no provider = no LLM = I need a key" misread.
+        self.assertIn("No --plan passed", output)
+        self.assertIn("YOU ARE the planner", output)
+        self.assertIn("you ARE the LLM", output)
+        # Runtime-agnostic: each supported runtime name should appear.
+        for runtime_name in ("Claude Code", "Codex", "Hermes", "Gemini"):
+            self.assertIn(runtime_name, output)
+        # The old misleading phrasing must NOT appear.
+        self.assertNotIn("No --plan and no LLM provider configured", output)
 
-    def test_fallback_does_not_log_warning_when_provider_present(self):
+    def test_fallback_does_not_log_new_warning_when_provider_present(self):
         # When a provider is configured, the provider path runs; if it
-        # succeeds, no fallback warning should appear.
-        # (The existing sanitize tests cover this; we just confirm the
-        # warning string gating is on provider-presence, not on fallback
-        # activation.)
+        # errors, we get the "LLM planning failed" message, NOT the
+        # "No --plan passed" guidance (which is specifically for the
+        # no-provider-no-plan caller path).
         import io
         import contextlib
         buf = io.StringIO()
@@ -438,11 +448,9 @@ class FallbackDefaultsTests(unittest.TestCase):
                 provider=_NoopProvider(),
                 model="some-model",
             )
-        # Provider was present — we expect the "LLM planning failed" message,
-        # NOT the "No --plan and no LLM provider" message.
         output = buf.getvalue()
         self.assertIn("LLM planning failed", output)
-        self.assertNotIn("No --plan and no LLM provider configured", output)
+        self.assertNotIn("No --plan passed", output)
 
 
 if __name__ == "__main__":

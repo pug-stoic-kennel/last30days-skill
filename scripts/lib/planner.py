@@ -113,17 +113,23 @@ def plan_query(
                 topic, available_sources, requested_sources, depth,
                 note=f"fallback-plan (LLM error: {type(exc).__name__})",
             )
-    # No provider configured and no --plan was passed. The deterministic
-    # fallback path produces weaker plans than the LLM or the --plan path
-    # (narrower subquery breadth, no semantic expansion). Surface that
-    # so Claude Code callers know to pass --plan with a JSON plan they
-    # generate themselves. See 2026-04-19 Hermes Agent Use Cases failure.
+    # No --plan was passed and no engine-internal provider is configured.
+    # The deterministic fallback path produces weaker plans than either the
+    # --plan path or the engine-internal LLM planner path. Surface this so
+    # the HOSTING reasoning model (Claude Code, Codex, Hermes, Gemini, etc.)
+    # realizes it is supposed to generate the plan itself and pass --plan.
+    # The word "provider" in engine messages refers to the engine's INTERNAL
+    # planner credentials - NOT a prerequisite the caller needs. If you are
+    # the hosting reasoning model, YOU are the provider. LAW 7 / 2026-04-19
+    # Hermes Agent Use Cases failure mode.
     import sys
     print(
-        "[Planner] No --plan and no LLM provider configured. "
-        "Using deterministic fallback; results will be weaker than the "
-        "LLM-planned path. If invoked from Claude Code, generate a JSON "
-        "query plan and pass --plan.",
+        "[Planner] No --plan passed. If you are the reasoning model hosting "
+        "this skill (Claude Code, Codex, Hermes, Gemini, or any agent runtime), "
+        "YOU ARE the planner: generate a JSON query plan yourself and pass it "
+        "via --plan. You do not need an API key or credentials; you ARE the "
+        "LLM. The deterministic fallback below is the headless/cron path only. "
+        "See LAW 7 in SKILL.md and Step 0.75 for the plan schema.",
         file=sys.stderr,
     )
     return _fallback_plan(topic, available_sources, requested_sources, depth)
